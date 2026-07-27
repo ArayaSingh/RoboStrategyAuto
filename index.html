@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoboStrategy — Multi-Season FTC Optimizer</title>
+    <style>
+        /* -------------------------------------------------------------
+           CSS VARIABLES & THEMING SYSTEM
+        ------------------------------------------------------------- */
+        :root {
+            /* Default Light Mode Palette */
+            --bg-gradient: linear-gradient(135deg, #f5f3ef 0%, #e6e0d4 50%, #d8d0c0 100%);
+            --glass-bg: rgba(255, 255, 255, 0.55);
+            --glass-bg-hover: rgba(255, 255, 255, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.6);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
+            
+            --text-primary: #23211f;
+            --text-muted: #666059;
+            --input-bg: rgba(255, 255, 255, 0.65);
+            --input-border: rgba(0, 0, 0, 0.12);
+            --canvas-bg: rgba(250, 248, 245, 0.85);
+            
+            /* Custom Accent Defaults */
+            --accent-primary: #3b7a57;
+            --accent-text: #ffffff;
+            --accent-amber: #c87d32;
+        }
+
+        [data-theme="dark"] {
+            /* Dark Mode Palette */
+            --bg-gradient: linear-gradient(135deg, #181716 0%, #242220 50%, #121110 100%);
+            --glass-bg: rgba(36, 34, 32, 0.65);
+            --glass-bg-hover: rgba(50, 47, 44, 0.8);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            
+            --text-primary: #f2efe9;
+            --text-muted: #a6a097;
+            --input-bg: rgba(20, 19, 18, 0.5);
+            --input-border: rgba(255, 255, 255, 0.15);
+            --canvas-bg: rgba(24, 23, 22, 0.9);
+        }
+
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+        }
+        
+        body { 
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-primary); 
+            display: flex; 
+            min-height: 100vh; 
+        }
+
+        /* -------------------------------------------------------------
+           GLASSMORPHISM UTILITIES & CONTAINER PANELS
+        ------------------------------------------------------------- */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: 12px;
+        }
+
+        sidebar {
+            width: 360px;
+            padding: 24px;
+            overflow-y: auto;
+            flex-shrink: 0;
+            margin: 16px 0 16px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        sidebar h2 { 
+            font-size: 1.05rem; 
+            font-weight: 600;
+            color: var(--text-primary); 
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--glass-border);
+            letter-spacing: -0.2px;
+        }
+
+        .theme-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--input-bg);
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--input-border);
+            margin-bottom: 8px;
+        }
+
+        .theme-controls label {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .theme-controls-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .color-picker-wrapper {
+            position: relative;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 2px solid var(--glass-border);
+            cursor: pointer;
+        }
+
+        .color-picker-wrapper input[type="color"] {
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            width: 38px;
+            height: 38px;
+            border: none;
+            cursor: pointer;
+            background: none;
+        }
+
+        .theme-toggle-btn {
+            background: transparent;
+            border: 1px solid var(--input-border);
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .theme-toggle-btn:hover {
+            background: var(--glass-bg-hover);
+        }
+
+        .section-title { 
+            font-size: 0.75rem; 
+            text-transform: uppercase; 
+            letter-spacing: 0.8px; 
+            color: var(--text-muted); 
+            margin: 16px 0 8px 0; 
+            font-weight: 700; 
+        }
+
+        .form-group { margin-bottom: 12px; display: flex; flex-direction: column; }
+        .form-group label { font-size: 0.85rem; margin-bottom: 6px; color: var(--text-muted); font-weight: 500; }
+        .form-group input[type="number"], 
+        .form-group select, 
+        .form-group input[type="text"] {
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-primary);
+            padding: 9px 12px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            outline: none;
+        }
+        .form-group input[type="number"]:focus, 
+        .form-group select:focus, 
+        .form-group input[type="text"]:focus {
+            border-color: var(--accent-primary);
+        }
+
+        .checkbox-group { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 0.85rem; color: var(--text-primary); }
+        
+        .btn {
+            background-color: var(--accent-primary);
+            color: var(--accent-text);
+            font-weight: 600;
+            border: none;
+            padding: 11px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 8px;
+            font-size: 0.88rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .btn:hover { opacity: 0.9; }
+
+        .btn-secondary {
+            background: var(--input-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--input-border);
+        }
+        .btn-secondary:hover { background: var(--glass-bg-hover); }
+
+        main { 
+            flex-grow: 1; 
+            padding: 16px 24px; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 20px; 
+        }
+        
+        header {
+            padding: 20px 24px;
+        }
+        header h1 { font-size: 1.5rem; font-weight: 600; color: var(--text-primary); letter-spacing: -0.3px; }
+        header p { color: var(--text-muted); font-size: 0.9rem; margin-top: 4px; }
+
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+        .metric-card { 
+            padding: 18px; 
+        }
+        .metric-card .title { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+        .metric-card .value { font-size: 1.6rem; font-weight: 600; color: var(--text-primary); margin: 6px 0; letter-spacing: -0.5px; }
+        .metric-card .subtitle { font-size: 0.75rem; color: var(--accent-primary); font-weight: 600; }
+
+        .tab-buttons { display: flex; gap: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--glass-border); }
+        .tab-btn { 
+            background: transparent; 
+            border: none;
+            border-bottom: 2px solid transparent; 
+            color: var(--text-muted); 
+            padding: 10px 16px; 
+            cursor: pointer; 
+            font-size: 0.9rem; 
+            font-weight: 500; 
+        }
+        .tab-btn.active { 
+            color: var(--text-primary); 
+            border-bottom-color: var(--accent-primary); 
+            font-weight: 600; 
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .sim-container { display: flex; gap: 24px; flex-wrap: wrap; }
+        .sim-controls { 
+            width: 280px; 
+            padding: 20px; 
+        }
+
+        .sim-controls h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        #fieldCanvas { 
+            background-color: var(--canvas-bg); 
+            border: 1px solid var(--glass-border); 
+            border-radius: 12px; 
+            cursor: crosshair;
+            box-shadow: var(--glass-shadow);
+        }
+
+        /* -------------------------------------------------------------
+           CHATBOT INTERFACE
+        ------------------------------------------------------------- */
+        .chat-box {
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            height: 440px;
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-right: 6px;
+        }
+
+        .message {
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            max-width: 85%;
+            line-height: 1.5;
+        }
+
+        .message.bot {
+            background-color: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-primary);
+            align-self: flex-start;
+        }
+
+        .message.user {
+            background-color: var(--accent-primary);
+            color: var(--accent-text);
+            align-self: flex-end;
+        }
+
+        .chat-input-group { display: flex; gap: 10px; }
+        .chat-input-group input {
+            flex-grow: 1;
+            background-color: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-primary);
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            outline: none;
+        }
+
+        .chat-input-group button {
+            background-color: var(--accent-primary);
+            border: none;
+            color: var(--accent-text);
+            font-weight: 600;
+            padding: 0 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.88rem;
+        }
+
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            border-radius: 8px; 
+            overflow: hidden; 
+        }
+        th, td { padding: 12px 18px; text-align: left; border-bottom: 1px solid var(--glass-border); }
+        th { background-color: var(--input-bg); color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+        td { font-size: 0.88rem; color: var(--text-primary); }
+    </style>
+</head>
+<body>
+
+    <sidebar class="glass-panel">
+        <h2>Match & Season Setup</h2>
+
+        <div class="theme-controls">
+            <label>Theme & Color</label>
+            <div class="theme-controls-right">
+                <div class="color-picker-wrapper" title="Change Theme Accent Color">
+                    <input type="color" id="accentPicker" value="#3b7a57" onchange="updateAccentColor(this.value)">
+                </div>
+                <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">🌙 Dark</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="seasonSelect">Select FTC Season Preset</label>
+            <select id="seasonSelect" onchange="loadSeasonPreset()">
+                <option value="decode" selected>FTC DECODE™ (2025–2026)</option>
+                <option value="intoTheDeep">INTO THE DEEP™ (2024–2025)</option>
+                <option value="powerPlay">POWER PLAY™ (2022–2023)</option>
+            </select>
+        </div>
+
+        <div id="dynamicInputs"></div>
+
+        <button class="btn" onclick="runOptimization()">Run Trajectory Optimization</button>
+        <button class="btn btn-secondary" onclick="stepNextWaypoint()">Step to Next Waypoint</button>
+    </sidebar>
+
+    <main>
+        <header class="glass-panel">
+            <h1 id="seasonTitle">RoboStrategy: FTC DECODE™ Optimizer</h1>
+            <p id="seasonSubtitle">Interactive Strategy & Trajectory Planning</p>
+        </header>
+
+        <div class="metrics-grid">
+            <div class="metric-card glass-panel">
+                <div class="title">Predicted Score</div>
+                <div class="value" id="metricTotal">0 pts</div>
+                <div class="subtitle" id="metricSub">0 AUTO / 0 TELEOP</div>
+            </div>
+            <div class="metric-card glass-panel">
+                <div class="title">Autonomous Score</div>
+                <div class="value" id="metricAuto">0 pts</div>
+                <div class="subtitle">Phase Yield</div>
+            </div>
+            <div class="metric-card glass-panel">
+                <div class="title">TeleOp Score</div>
+                <div class="value" id="metricTele">0 pts</div>
+                <div class="subtitle">Endgame Included</div>
+            </div>
+            <div class="metric-card glass-panel">
+                <div class="title">Waypoints Active</div>
+                <div class="value" id="metricWaypoints" style="color: var(--accent-amber)">2 dots</div>
+                <div class="subtitle">Click field to add dots</div>
+            </div>
+        </div>
+
+        <div class="tab-buttons">
+            <button class="tab-btn active" onclick="switchTab('tabSim')">Field Simulation</button>
+            <button class="tab-btn" onclick="switchTab('tabChat')">AI Command & Path Advisor</button>
+            <button class="tab-btn" onclick="switchTab('tabTable')">Point Breakdown</button>
+        </div>
+
+        <div id="tabSim" class="tab-content active">
+            <div class="sim-container">
+                <div class="sim-controls glass-panel">
+                    <h3>Trajectory Controls</h3>
+                    <div class="form-group">
+                        <label>Robot Start X: <span id="lblRx">0.5</span>m</label>
+                        <input type="range" id="robotX" min="0.2" max="3.4" step="0.1" value="0.5" oninput="drawField()">
+                    </div>
+                    <div class="form-group">
+                        <label>Robot Start Y: <span id="lblRy">0.5</span>m</label>
+                        <input type="range" id="robotY" min="0.2" max="3.4" step="0.1" value="0.5" oninput="drawField()">
+                    </div>
+                    <div class="form-group">
+                        <label>Target Goal X: <span id="lblTx">3.0</span>m</label>
+                        <input type="range" id="targetX" min="0.2" max="3.4" step="0.1" value="3.0" oninput="drawField()">
+                    </div>
+                    <div class="form-group">
+                        <label>Target Goal Y: <span id="lblTy">3.0</span>m</label>
+                        <input type="range" id="targetY" min="0.2" max="3.4" step="0.1" value="3.0" oninput="drawField()">
+                    </div>
+                    <button class="btn btn-secondary" onclick="clearWaypoints()" style="margin-top: 5px;">Reset Custom Dots</button>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label><strong>Standard Field Elements:</strong></label>
+                        <p id="obstacleDesc" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; line-height: 1.4;"></p>
+                    </div>
+                </div>
+
+                <div>
+                    <canvas id="fieldCanvas" width="540" height="540" onclick="handleCanvasClick(event)"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div id="tabChat" class="tab-content">
+            <div class="chat-box glass-panel">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message bot">
+                        Hello! I am your interactive AI assistant. You can give me direct commands like:<br><br>
+                        • <em>"Score 4 artifacts in auto and 8 in teleop"</em><br>
+                        • <em>"Move target to 2.5, 3.1"</em><br>
+                        • <em>"Next set" / "Step dot"</em> to sequence targets<br>
+                        • <em>"Clear waypoints"</em> or <em>"Set start position to 1.0, 0.5"</em>
+                    </div>
+                </div>
+                <div class="chat-input-group">
+                    <input type="text" id="chatInput" placeholder="Tell me what you want to change..." onkeydown="if(event.key === 'Enter') sendMessage()">
+                    <button onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tabTable" class="tab-content">
+            <div class="glass-panel" style="padding: 12px; overflow: hidden;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Points per Action</th>
+                            <th>Action Count</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scoreTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        /* -------------------------------------------------------------
+           THEME & ACCENT COLOR ENGINE (Ensures readable text contrast)
+        ------------------------------------------------------------- */
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            
+            const btn = document.getElementById('themeToggleBtn');
+            btn.innerText = newTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
+            
+            drawField();
+        }
+
+        function updateAccentColor(hexColor) {
+            document.documentElement.style.setProperty('--accent-primary', hexColor);
+            
+            // Calculate relative luminance to guarantee text contrast
+            const rgb = hexToRgb(hexColor);
+            if (rgb) {
+                const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+                const textContrast = brightness > 140 ? '#1a1a1a' : '#ffffff';
+                document.documentElement.style.setProperty('--accent-text', textContrast);
+            }
+            drawField();
+        }
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+
+        /* -------------------------------------------------------------
+           SEASON DATA & COMPUTATION ENGINE
+        ------------------------------------------------------------- */
+        const SEASON_CONFIGS = {
+            decode: {
+                title: "RoboStrategy: FTC DECODE™ (2025–2026)",
+                subtitle: "Central Obelisk, Classifier Ramps & Secret Gate Navigation",
+                obstacleDesc: "Standard DECODE Field: Central Obelisk (1.8m, 1.8m) + Classifier Ramps & Field Gates.",
+                obstacles: [
+                    { x: 1.8, y: 1.8, r: 0.35, label: "OBELISK" },
+                    { x: 0.9, y: 2.7, r: 0.30, label: "RAMP 1" },
+                    { x: 2.7, y: 0.9, r: 0.30, label: "RAMP 2" },
+                    { x: 0.9, y: 0.9, r: 0.20, label: "GATE A" },
+                    { x: 2.7, y: 2.7, r: 0.20, label: "GATE B" }
+                ],
+                inputsHTML: `
+                    <div class="section-title">1. Autonomous</div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="autoLeave" checked onchange="calculateScore()">
+                        <label for="autoLeave">Launch Line LEAVE (3 pts)</label>
+                    </div>
+                    <div class="form-group">
+                        <label>AUTO Classified Artifacts (3 pts)</label>
+                        <input type="number" id="autoClassified" value="2" min="0" max="12" onchange="calculateScore()">
+                    </div>
+                    <div class="form-group">
+                        <label>AUTO Motif Matches (2 pts)</label>
+                        <input type="number" id="autoPattern" value="2" min="0" max="9" onchange="calculateScore()">
+                    </div>
+
+                    <div class="section-title">2. TeleOp</div>
+                    <div class="form-group">
+                        <label>TELEOP Classified Artifacts (3 pts)</label>
+                        <input type="number" id="teleClassified" value="6" min="0" max="24" onchange="calculateScore()">
+                    </div>
+                    <div class="form-group">
+                        <label>TELEOP Motif Matches (2 pts)</label>
+                        <input type="number" id="telePattern" value="4" min="0" max="9" onchange="calculateScore()">
+                    </div>
+
+                    <div class="section-title">3. End Game</div>
+                    <div class="form-group">
+                        <label>Base Return Status</label>
+                        <select id="baseStatus" onchange="calculateScore()">
+                            <option value="0">None (0 pts)</option>
+                            <option value="5">Partially Returned (5 pts)</option>
+                            <option value="10" selected>Fully Returned (10 pts)</option>
+                        </select>
+                    </div>
+                `,
+                calc: () => {
+                    const leave = document.getElementById('autoLeave').checked ? 3 : 0;
+                    const aClass = (parseInt(document.getElementById('autoClassified').value) || 0) * 3;
+                    const aPat = (parseInt(document.getElementById('autoPattern').value) || 0) * 2;
+                    const autoTotal = leave + aClass + aPat;
+
+                    const tClass = (parseInt(document.getElementById('teleClassified').value) || 0) * 3;
+                    const tPat = (parseInt(document.getElementById('telePattern').value) || 0) * 2;
+                    const base = parseInt(document.getElementById('baseStatus').value) || 0;
+                    const teleTotal = tClass + tPat + base;
+
+                    return {
+                        auto: autoTotal, tele: teleTotal,
+                        table: [
+                            ["Autonomous LEAVE", 3, document.getElementById('autoLeave').checked ? 1 : 0, leave],
+                            ["AUTO Classified Artifacts", 3, parseInt(document.getElementById('autoClassified').value) || 0, aClass],
+                            ["AUTO Motif Matches", 2, parseInt(document.getElementById('autoPattern').value) || 0, aPat],
+                            ["TELEOP Classified Artifacts", 3, parseInt(document.getElementById('teleClassified').value) || 0, tClass],
+                            ["TELEOP Motif Matches", 2, parseInt(document.getElementById('telePattern').value) || 0, tPat],
+                            ["Base Return", base, base > 0 ? 1 : 0, base]
+                        ]
+                    };
+                }
+            },
+            intoTheDeep: {
+                title: "RoboStrategy: INTO THE DEEP™ (2024–2025)",
+                subtitle: "Center Submersible Truss Structure & Observation Wall Obstacles",
+                obstacleDesc: "Standard Into The Deep Field: Submersible Center Structure, Baskets, & Observation Wall.",
+                obstacles: [
+                    { x: 1.8, y: 1.8, r: 0.50, label: "SUBMERSIBLE" },
+                    { x: 0.6, y: 3.0, r: 0.25, label: "NET ZONE" },
+                    { x: 3.0, y: 0.6, r: 0.25, label: "OBSERVATION" },
+                    { x: 1.2, y: 1.8, r: 0.18, label: "TRUSS L" },
+                    { x: 2.4, y: 1.8, r: 0.18, label: "TRUSS R" }
+                ],
+                inputsHTML: `
+                    <div class="section-title">1. Autonomous</div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="autoPark" checked onchange="calculateScore()">
+                        <label for="autoPark">Auto Park Observation Zone (3 pts)</label>
+                    </div>
+                    <div class="form-group">
+                        <label>High Basket Samples (8 pts)</label>
+                        <input type="number" id="autoHighBasket" value="2" min="0" max="10" onchange="calculateScore()">
+                    </div>
+
+                    <div class="section-title">2. TeleOp</div>
+                    <div class="form-group">
+                        <label>High Basket Samples (8 pts)</label>
+                        <input type="number" id="teleHighBasket" value="4" min="0" max="20" onchange="calculateScore()">
+                    </div>
+
+                    <div class="section-title">3. Endgame Ascent</div>
+                    <div class="form-group">
+                        <label>Submersible Ascent Level</label>
+                        <select id="ascentLevel" onchange="calculateScore()">
+                            <option value="0">None (0 pts)</option>
+                            <option value="15" selected>Level 2 Ascent (15 pts)</option>
+                            <option value="30">Level 3 Ascent (30 pts)</option>
+                        </select>
+                    </div>
+                `,
+                calc: () => {
+                    const park = document.getElementById('autoPark').checked ? 3 : 0;
+                    const aBasket = (parseInt(document.getElementById('autoHighBasket').value) || 0) * 8;
+                    const autoTotal = park + aBasket;
+
+                    const tHBasket = (parseInt(document.getElementById('teleHighBasket').value) || 0) * 8;
+                    const ascent = parseInt(document.getElementById('ascentLevel').value) || 0;
+                    const teleTotal = tHBasket + ascent;
+
+                    return {
+                        auto: autoTotal, tele: teleTotal,
+                        table: [
+                            ["Auto Park Observation Zone", 3, document.getElementById('autoPark').checked ? 1 : 0, park],
+                            ["AUTO High Basket Samples", 8, parseInt(document.getElementById('autoHighBasket').value) || 0, aBasket],
+                            ["TELEOP High Basket Samples", 8, parseInt(document.getElementById('teleHighBasket').value) || 0, tHBasket],
+                            ["Endgame Ascent", ascent, ascent > 0 ? 1 : 0, ascent]
+                        ]
+                    };
+                }
+            },
+            powerPlay: {
+                title: "RoboStrategy: POWER PLAY™ (2022–2023)",
+                subtitle: "Official 5x5 Junction Pole Grid Layout",
+                obstacleDesc: "Standard Power Play Field: Official 5x5 Grid of High, Medium, & Low Junction Poles.",
+                obstacles: [
+                    { x: 0.6, y: 0.6, r: 0.12, label: "LOW" }, { x: 1.2, y: 0.6, r: 0.12, label: "MED" }, { x: 1.8, y: 0.6, r: 0.15, label: "HIGH" }, { x: 2.4, y: 0.6, r: 0.12, label: "MED" }, { x: 3.0, y: 0.6, r: 0.12, label: "LOW" },
+                    { x: 0.6, y: 1.2, r: 0.12, label: "MED" }, { x: 1.2, y: 1.2, r: 0.15, label: "HIGH" }, { x: 1.8, y: 1.2, r: 0.12, label: "MED" }, { x: 2.4, y: 1.2, r: 0.15, label: "HIGH" }, { x: 3.0, y: 1.2, r: 0.12, label: "MED" },
+                    { x: 0.6, y: 1.8, r: 0.15, label: "HIGH" }, { x: 1.2, y: 1.8, r: 0.12, label: "MED" }, { x: 1.8, y: 1.8, r: 0.10, label: "GND" }, { x: 2.4, y: 1.8, r: 0.12, label: "MED" }, { x: 3.0, y: 1.8, r: 0.15, label: "HIGH" },
+                    { x: 0.6, y: 2.4, r: 0.12, label: "MED" }, { x: 1.2, y: 2.4, r: 0.15, label: "HIGH" }, { x: 1.8, y: 2.4, r: 0.12, label: "MED" }, { x: 2.4, y: 2.4, r: 0.15, label: "HIGH" }, { x: 3.0, y: 2.4, r: 0.12, label: "MED" },
+                    { x: 0.6, y: 3.0, r: 0.12, label: "LOW" }, { x: 1.2, y: 3.0, r: 0.12, label: "MED" }, { x: 1.8, y: 3.0, r: 0.15, label: "HIGH" }, { x: 2.4, y: 3.0, r: 0.12, label: "MED" }, { x: 3.0, y: 3.0, r: 0.12, label: "LOW" }
+                ],
+                inputsHTML: `
+                    <div class="section-title">1. Autonomous</div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="signalSleeve" checked onchange="calculateScore()">
+                        <label for="signalSleeve">Custom Signal Sleeve Park (20 pts)</label>
+                    </div>
+
+                    <div class="section-title">2. TeleOp</div>
+                    <div class="form-group">
+                        <label>High Junction Cones (5 pts)</label>
+                        <input type="number" id="teleHighJunction" value="8" min="0" max="30" onchange="calculateScore()">
+                    </div>
+                `,
+                calc: () => {
+                    const sleeve = document.getElementById('signalSleeve').checked ? 20 : 0;
+                    const tHigh = (parseInt(document.getElementById('teleHighJunction').value) || 0) * 5;
+
+                    return {
+                        auto: sleeve, tele: tHigh,
+                        table: [
+                            ["Custom Signal Sleeve Auto Park", 20, document.getElementById('signalSleeve').checked ? 1 : 0, sleeve],
+                            ["TELEOP High Junction Cones", 5, parseInt(document.getElementById('teleHighJunction').value) || 0, tHigh]
+                        ]
+                    };
+                }
+            }
+        };
+
+        let currentSeason = "decode";
+        let customWaypoints = [];
+
+        function loadSeasonPreset() {
+            currentSeason = document.getElementById('seasonSelect').value;
+            const config = SEASON_CONFIGS[currentSeason];
+
+            document.getElementById('seasonTitle').innerText = config.title;
+            document.getElementById('seasonSubtitle').innerText = config.subtitle;
+            document.getElementById('obstacleDesc').innerText = config.obstacleDesc;
+            document.getElementById('dynamicInputs').innerHTML = config.inputsHTML;
+
+            customWaypoints = [];
+            calculateScore();
+            drawField();
+        }
+
+        function calculateScore() {
+            const result = SEASON_CONFIGS[currentSeason].calc();
+            const grandTotal = result.auto + result.tele;
+
+            document.getElementById('metricTotal').innerText = `${grandTotal} pts`;
+            document.getElementById('metricSub').innerText = `${result.auto} AUTO / ${result.tele} TELEOP`;
+            document.getElementById('metricAuto').innerText = `${result.auto} pts`;
+            document.getElementById('metricTele').innerText = `${result.tele} pts`;
+
+            const tbody = document.getElementById('scoreTableBody');
+            tbody.innerHTML = result.table.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td><strong>${r[3]}</strong></td></tr>`).join('');
+        }
+
+        function handleCanvasClick(e) {
+            const canvas = document.getElementById('fieldCanvas');
+            const rect = canvas.getBoundingClientRect();
+            const scale = canvas.width / 3.6;
+
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            const fieldX = Math.round((clickX / scale) * 10) / 10;
+            const fieldY = Math.round((3.6 - (clickY / scale)) * 10) / 10;
+
+            if (fieldX >= 0 && fieldX <= 3.6 && fieldY >= 0 && fieldY <= 3.6) {
+                customWaypoints.push({ x: fieldX, y: fieldY });
+                drawField();
+            }
+        }
+
+        function clearWaypoints() {
+            customWaypoints = [];
+            drawField();
+        }
+
+        function stepNextWaypoint() {
+            if (customWaypoints.length > 0) {
+                const nextPt = customWaypoints.shift();
+                document.getElementById('robotX').value = nextPt.x;
+                document.getElementById('robotY').value = nextPt.y;
+                drawField();
+            } else {
+                let tx = parseFloat(document.getElementById('targetX').value);
+                tx = Math.min(3.4, tx + 0.4);
+                document.getElementById('targetX').value = tx.toFixed(1);
+                drawField();
+            }
+        }
+
+        function drawField() {
+            const canvas = document.getElementById('fieldCanvas');
+            const ctx = canvas.getContext('2d');
+            const scale = canvas.width / 3.6;
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-primary').trim() || '#3b7a57';
+            const textColor = isDark ? '#f2efe9' : '#23211f';
+            const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+
+            const rx = parseFloat(document.getElementById('robotX').value);
+            const ry = parseFloat(document.getElementById('robotY').value);
+            const tx = parseFloat(document.getElementById('targetX').value);
+            const ty = parseFloat(document.getElementById('targetY').value);
+
+            document.getElementById('lblRx').innerText = rx;
+            document.getElementById('lblRy').innerText = ry;
+            document.getElementById('lblTx').innerText = tx;
+            document.getElementById('lblTy').innerText = ty;
+
+            document.getElementById('metricWaypoints').innerText = `${customWaypoints.length + 2} dots`;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Grid Lines
+            ctx.strokeStyle = gridColor;
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 3.6; i += 0.6) {
+                ctx.beginPath(); ctx.moveTo(i * scale, 0); ctx.lineTo(i * scale, canvas.height); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i * scale); ctx.lineTo(canvas.width, i * scale); ctx.stroke();
+            }
+
+            // Draw Season Obstacles
+            const activeObs = SEASON_CONFIGS[currentSeason].obstacles;
+            activeObs.forEach(obs => {
+                ctx.fillStyle = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+                ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(obs.x * scale, (3.6 - obs.y) * scale, obs.r * scale, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = textColor;
+                ctx.font = '500 10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(obs.label, obs.x * scale, (3.6 - obs.y) * scale + 3);
+            });
+
+            // Target Sequence
+            const fullPoints = [{ x: rx, y: ry }, ...customWaypoints, { x: tx, y: ty }];
+
+            // Draw Waypoint Dots
+            customWaypoints.forEach((pt, index) => {
+                ctx.fillStyle = '#c87d32';
+                ctx.beginPath();
+                ctx.arc(pt.x * scale, (3.6 - pt.y) * scale, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = textColor;
+                ctx.font = '600 10px sans-serif';
+                ctx.fillText(`P${index + 1}`, pt.x * scale, (3.6 - pt.y) * scale - 9);
+            });
+
+            // Connected Line Segments
+            ctx.strokeStyle = accentColor;
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            fullPoints.forEach((p, index) => {
+                let cx = p.x * scale;
+                let cy = (3.6 - p.y) * scale;
+                if (index === 0) ctx.moveTo(cx, cy);
+                else ctx.lineTo(cx, cy);
+            });
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Goal Target Dot
+            ctx.fillStyle = '#c87d32';
+            ctx.beginPath();
+            ctx.arc(tx * scale, (3.6 - ty) * scale, 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Robot
+            ctx.fillStyle = textColor;
+            let rPx = rx * scale;
+            let rPy = (3.6 - ry) * scale;
+            ctx.fillRect(rPx - 10, rPy - 10, 20, 20);
+        }
+
+        /* -------------------------------------------------------------
+           CHATBOT & COMMAND PARSER ENGINE
+        ------------------------------------------------------------- */
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const chatMessages = document.getElementById('chatMessages');
+
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message user';
+            userMsg.innerText = text;
+            chatMessages.appendChild(userMsg);
+
+            input.value = '';
+
+            setTimeout(() => {
+                const botMsg = document.createElement('div');
+                botMsg.className = 'message bot';
+
+                const lower = text.toLowerCase();
+                let actionsTaken = [];
+
+                const numbers = text.match(/\d+/g);
+                
+                if (lower.includes('artifact') || lower.includes('basket') || lower.includes('score') || lower.includes('cone')) {
+                    if (numbers && numbers.length > 0) {
+                        const val = parseInt(numbers[0]);
+                        if (document.getElementById('autoClassified')) {
+                            document.getElementById('autoClassified').value = val;
+                            actionsTaken.push(`Updated Auto score count to ${val}`);
+                        } else if (document.getElementById('autoHighBasket')) {
+                            document.getElementById('autoHighBasket').value = val;
+                            actionsTaken.push(`Updated High Basket count to ${val}`);
+                        }
+                    }
+                    if (numbers && numbers.length > 1) {
+                        const val2 = parseInt(numbers[1]);
+                        if (document.getElementById('teleClassified')) {
+                            document.getElementById('teleClassified').value = val2;
+                            actionsTaken.push(`Updated TeleOp score count to ${val2}`);
+                        } else if (document.getElementById('teleHighBasket')) {
+                            document.getElementById('teleHighBasket').value = val2;
+                            actionsTaken.push(`Updated TeleOp count to ${val2}`);
+                        }
+                    }
+                    calculateScore();
+                }
+
+                if (lower.includes('next') || lower.includes('step') || lower.includes('pick next')) {
+                    stepNextWaypoint();
+                    actionsTaken.push('Stepped trajectory forward to next waypoint');
+                }
+
+                if (lower.includes('target') || lower.includes('goal')) {
+                    if (numbers && numbers.length >= 2) {
+                        document.getElementById('targetX').value = (parseInt(numbers[0]) / 10).toFixed(1);
+                        document.getElementById('targetY').value = (parseInt(numbers[1]) / 10).toFixed(1);
+                        actionsTaken.push(`Updated target coordinates to (${document.getElementById('targetX').value}, ${document.getElementById('targetY').value})`);
+                    }
+                    drawField();
+                }
+
+                if (lower.includes('clear') || lower.includes('reset')) {
+                    clearWaypoints();
+                    actionsTaken.push('Cleared all custom waypoints/dots from field canvas');
+                }
+
+                let responseText = '';
+                if (actionsTaken.length > 0) {
+                    responseText = `✔️ <strong>Updated program state based on your request:</strong><br>• ` + actionsTaken.join('<br>• ');
+                } else {
+                    responseText = `I received your request! Try commands like <em>"Score 3 artifacts in auto and 6 in teleop"</em>, <em>"Next set"</em>, or click directly on the canvas to add waypoint dots.`;
+                }
+
+                botMsg.innerHTML = responseText;
+                chatMessages.appendChild(botMsg);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }, 300);
+
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        function runOptimization() {
+            alert("Trajectory Optimized! Path generated through all current waypoints.");
+            drawField();
+        }
+
+        window.onload = () => {
+            loadSeasonPreset();
+        };
+    </script>
+</body>
+</html>

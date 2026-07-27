@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoboStrategy — Next-Gen Autonomous AI Framework</title>
+    <style>
+        /* -------------------------------------------------------------
+           CSS VARIABLES & THEMING SYSTEM (Glassmorphism & Contrast Engine)
+        ------------------------------------------------------------- */
+        :root {
+            /* Default Dark Theme Palette */
+            --bg-gradient: linear-gradient(135deg, #121110 0%, #1a1918 50%, #0d0c0c 100%);
+            --glass-bg: rgba(30, 28, 26, 0.65);
+            --glass-bg-hover: rgba(45, 42, 39, 0.8);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
+            
+            --text-main: #f5f3ef;
+            --text-sub: #a6a097;
+            --input-bg: rgba(20, 19, 18, 0.6);
+            --input-border: rgba(255, 255, 255, 0.15);
+            --code-bg: #141312;
+            
+            /* Custom Accent Default */
+            --accent-primary: #3b7a57;
+            --accent-text: #ffffff;
+            --accent-amber: #c87d32;
+        }
+
+        [data-theme="light"] {
+            /* Light Theme Palette */
+            --bg-gradient: linear-gradient(135deg, #f5f3ef 0%, #e6e0d4 50%, #d8d0c0 100%);
+            --glass-bg: rgba(255, 255, 255, 0.6);
+            --glass-bg-hover: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.6);
+            --glass-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.08);
+            
+            --text-main: #23211f;
+            --text-sub: #666059;
+            --input-bg: rgba(255, 255, 255, 0.7);
+            --input-border: rgba(0, 0, 0, 0.12);
+            --code-bg: #faf8f5;
+        }
+
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+        }
+        
+        body {
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-main);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Glassmorphism Panel Class */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: 16px;
+        }
+
+        /* Navigation Bar */
+        nav {
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            padding: 16px 8%; 
+            position: sticky; 
+            top: 16px; 
+            z-index: 100;
+            margin: 0 8%;
+            border-radius: 14px;
+        }
+        .logo { 
+            font-size: 1.25rem; 
+            font-weight: 800; 
+            letter-spacing: -0.5px; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            color: var(--text-main);
+        }
+        
+        .nav-links { display: flex; gap: 28px; list-style: none; }
+        .nav-links a { color: var(--text-sub); text-decoration: none; font-size: 0.9rem; font-weight: 500; }
+        .nav-links a:hover { color: var(--text-main); }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .color-picker-wrapper {
+            position: relative;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 2px solid var(--glass-border);
+            cursor: pointer;
+        }
+
+        .color-picker-wrapper input[type="color"] {
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            width: 38px;
+            height: 38px;
+            border: none;
+            cursor: pointer;
+            background: none;
+        }
+
+        .theme-toggle-btn {
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-main);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .theme-toggle-btn:hover { background: var(--glass-bg-hover); }
+
+        .nav-btn {
+            background-color: var(--accent-primary);
+            color: var(--accent-text);
+            font-weight: 700; 
+            padding: 9px 20px; 
+            border-radius: 8px;
+            text-decoration: none; 
+            font-size: 0.88rem; 
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+        }
+        .nav-btn:hover { opacity: 0.92; }
+
+        /* Hero Section */
+        .hero {
+            display: flex; flex-direction: column; align-items: center; text-align: center;
+            padding: 80px 5% 40px; max-width: 1100px; margin: 0 auto;
+        }
+        
+        .tagline {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: var(--input-bg); 
+            border: 1px solid var(--input-border);
+            padding: 8px 20px; border-radius: 30px; font-size: 0.85rem; font-weight: 600;
+            color: var(--accent-primary);
+            margin-bottom: 25px;
+        }
+
+        h1 {
+            font-size: 3.5rem; font-weight: 800; line-height: 1.15; margin-bottom: 20px;
+            color: var(--text-main); letter-spacing: -1px;
+        }
+
+        p.hero-sub { font-size: 1.15rem; color: var(--text-sub); max-width: 720px; line-height: 1.6; margin-bottom: 35px; }
+
+        .cta-group { display: flex; gap: 16px; }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: var(--accent-text); 
+            font-weight: 700; 
+            padding: 14px 32px; 
+            border-radius: 10px;
+            text-decoration: none; 
+            font-size: 1rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+        .btn-primary:hover { opacity: 0.92; }
+
+        .btn-secondary {
+            background: var(--input-bg); 
+            border: 1px solid var(--input-border);
+            color: var(--text-main); 
+            font-weight: 600; 
+            padding: 14px 28px; 
+            border-radius: 10px;
+            text-decoration: none; 
+            font-size: 1rem;
+        }
+        .btn-secondary:hover { background: var(--glass-bg-hover); }
+
+        /* Code Preview Window */
+        .preview-wrapper {
+            width: 100%; max-width: 950px; margin: 50px auto 0;
+            overflow: hidden;
+        }
+
+        .window-header {
+            background: var(--input-bg); padding: 12px 20px; display: flex; align-items: center; gap: 8px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .dot-red { background: #ff5f56; } .dot-yellow { background: #ffbd2e; } .dot-green { background: #27c93f; }
+        .window-title { margin-left: 15px; font-size: 0.8rem; color: var(--text-sub); font-family: monospace; }
+
+        .window-body { 
+            padding: 28px; 
+            text-align: left; 
+            font-family: 'Consolas', 'Courier New', Courier, monospace; 
+            font-size: 0.92rem; 
+            background: var(--code-bg);
+            color: var(--text-main); 
+            line-height: 1.65; 
+        }
+        .code-keyword { color: var(--accent-amber); font-weight: bold; }
+        .code-func { color: var(--accent-primary); font-weight: bold; }
+        .code-str { color: var(--text-sub); }
+        .code-comment { color: var(--text-sub); opacity: 0.7; }
+
+        /* Features Section */
+        .features { padding: 60px 8%; max-width: 1200px; margin: 0 auto; }
+        .section-title { text-align: center; font-size: 2rem; font-weight: 700; margin-bottom: 40px; color: var(--text-main); }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+
+        .card {
+            padding: 28px; border-radius: 14px; position: relative; overflow: hidden;
+        }
+        .card:hover {
+            border-color: var(--accent-primary);
+        }
+        .card-icon { font-size: 2.2rem; margin-bottom: 16px; }
+        .card h3 { font-size: 1.2rem; margin-bottom: 10px; color: var(--text-main); }
+        .card p { font-size: 0.9rem; color: var(--text-sub); line-height: 1.55; }
+
+        footer { 
+            text-align: center; 
+            padding: 30px; 
+            color: var(--text-sub); 
+            font-size: 0.85rem; 
+            border-top: 1px solid var(--glass-border); 
+            margin-top: 40px; 
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="glass-panel">
+        <div class="logo">
+            🤖 <span class="logo-badge">RoboStrategy</span>
+        </div>
+        <ul class="nav-links">
+            <li><a href="#features">Architecture</a></li>
+            <li><a href="#simulation">2D Engine</a></li>
+            <li><a href="#copilot">AI Copilot</a></li>
+        </ul>
+        <div class="nav-right">
+            <div class="color-picker-wrapper" title="Change Theme Accent Color">
+                <input type="color" id="accentPicker" value="#3b7a57" onchange="updateAccentColor(this.value)">
+            </div>
+            <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">☀️ Light</button>
+            <a href="index.html" class="nav-btn">Launch App</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="tagline">⚡ Next-Gen FTC Autonomous Optimization Framework</div>
+        <h1>Build, Simulate, & Deploy RL Path Strategies</h1>
+        <p class="hero-sub">
+            An open-source reinforcement learning workflow designed for FIRST Tech Challenge robotics teams. Model 2D collision-avoidance trajectory routines in real-time.
+        </p>
+        <div class="cta-group">
+            <a href="index.html" class="btn-primary">
+                <span>Try RoboStrategy</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+            <a href="#features" class="btn-secondary">Explore Architecture</a>
+        </div>
+
+        <div class="preview-wrapper glass-panel">
+            <div class="window-header">
+                <span class="dot dot-red"></span>
+                <span class="dot dot-yellow"></span>
+                <span class="dot dot-green"></span>
+                <span class="window-title">robostrategy_agent.py — PPO Field Optimization</span>
+            </div>
+            <div class="window-body">
+                <span class="code-comment"># Initializing Autonomous Field Environment</span><br>
+                <span class="code-keyword">from</span> robostrategy <span class="code-keyword">import</span> FieldAgent, PPOOptimizer<br><br>
+                agent = FieldAgent(max_velocity=<span class="code-str">2.5</span>, field_size=(<span class="code-str">3.6</span>, <span class="code-str">3.6</span>))<br>
+                optimizer = PPOOptimizer(policy=<span class="code-str">"MlpPolicy"</span>, learning_rate=<span class="code-str">0.0003</span>)<br><br>
+                <span class="code-comment"># Executing RL trajectory with dynamic obstacle avoidance</span><br>
+                optimizer.<span class="code-func">train</span>(episodes=<span class="code-str">1000</span>)<br>
+                <span class="code-comment">>> Optimal Autonomous Path Generated: 142 Points Predicted [SUCCESS]</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="features" id="features">
+        <h2 class="section-title">Engineered for High-Performance Robotics</h2>
+        <div class="grid">
+            <div class="card glass-panel">
+                <div class="card-icon">🧠</div>
+                <h3>PPO Trajectory Optimization</h3>
+                <p>Train state-of-the-art Reinforcement Learning policies directly tuned for autonomous speed and scoring precision.</p>
+            </div>
+            <div class="card glass-panel" id="simulation">
+                <div class="card-icon">🗺️</div>
+                <h3>Interactive 2D Field Canvas</h3>
+                <p>Simulate field obstacles, starting positions, target positions, and kinematically constrained robot trajectories in real time.</p>
+            </div>
+            <div class="card glass-panel" id="copilot">
+                <div class="card-icon">💬</div>
+                <h3>AI Copilot Command System</h3>
+                <p>Get real-time strategic assistance, pathing advice, and score tuning recommendations using structured AI NLP parsing.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <p>RoboStrategy | Built for FTC Strategic Dominance</p>
+    </footer>
+
+    <script>
+        /* -------------------------------------------------------------
+           DYNAMIC THEME & COLOR ENGINE
+        ------------------------------------------------------------- */
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', newTheme);
+            
+            const btn = document.getElementById('themeToggleBtn');
+            btn.innerText = newTheme === 'light' ? '🌙 Dark' : '☀️ Light';
+        }
+
+        function updateAccentColor(hexColor) {
+            document.documentElement.style.setProperty('--accent-primary', hexColor);
+            
+            // Luminance check to make sure text remains legible on top of button/badge
+            const rgb = hexToRgb(hexColor);
+            if (rgb) {
+                const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+                const textContrast = brightness > 140 ? '#1a1a1a' : '#ffffff';
+                document.documentElement.style.setProperty('--accent-text', textContrast);
+            }
+        }
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+    </script>
+</body>
+</html>
