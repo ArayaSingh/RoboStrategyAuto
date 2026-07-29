@@ -400,9 +400,9 @@
         </div>
 
         <div class="tab-buttons">
-            <button class="tab-btn active" onclick="switchTab('tabSim')">Field Simulation</button>
-            <button class="tab-btn" onclick="switchTab('tabChat')">AI Command & Path Advisor</button>
-            <button class="tab-btn" onclick="switchTab('tabTable')">Point Breakdown</button>
+            <button class="tab-btn active" onclick="switchTab(event, 'tabSim')">Field Simulation</button>
+            <button class="tab-btn" onclick="switchTab(event, 'tabChat')">AI Command & Path Advisor</button>
+            <button class="tab-btn" onclick="switchTab(event, 'tabTable')">Point Breakdown</button>
         </div>
 
         <div id="tabSim" class="tab-content active">
@@ -475,7 +475,7 @@
 
     <script>
         /* -------------------------------------------------------------
-           THEME & ACCENT COLOR ENGINE (Ensures readable text contrast)
+           THEME & ACCENT COLOR ENGINE
         ------------------------------------------------------------- */
         function toggleTheme() {
             const html = document.documentElement;
@@ -492,7 +492,6 @@
         function updateAccentColor(hexColor) {
             document.documentElement.style.setProperty('--accent-primary', hexColor);
             
-            // Calculate relative luminance to guarantee text contrast
             const rgb = hexToRgb(hexColor);
             if (rgb) {
                 const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
@@ -684,8 +683,13 @@
 
         let currentSeason = "decode";
         let customWaypoints = [];
+        let animationInterval = null;
 
         function loadSeasonPreset() {
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+            }
             currentSeason = document.getElementById('seasonSelect').value;
             const config = SEASON_CONFIGS[currentSeason];
 
@@ -730,6 +734,10 @@
         }
 
         function clearWaypoints() {
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+            }
             customWaypoints = [];
             drawField();
         }
@@ -742,10 +750,60 @@
                 drawField();
             } else {
                 let tx = parseFloat(document.getElementById('targetX').value);
-                tx = Math.min(3.4, tx + 0.4);
-                document.getElementById('targetX').value = tx.toFixed(1);
+                let ty = parseFloat(document.getElementById('targetY').value);
+
+                document.getElementById('robotX').value = tx;
+                document.getElementById('robotY').value = ty;
                 drawField();
             }
+        }
+
+        function runOptimization() {
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+            }
+
+            if (customWaypoints.length === 0) {
+                let currentX = parseFloat(document.getElementById('robotX').value);
+                let currentY = parseFloat(document.getElementById('robotY').value);
+                let targetX = parseFloat(document.getElementById('targetX').value);
+                let targetY = parseFloat(document.getElementById('targetY').value);
+
+                animationInterval = setInterval(() => {
+                    let dx = targetX - currentX;
+                    let dy = targetY - currentY;
+                    let distance = Math.hypot(dx, dy);
+
+                    if (distance < 0.05) {
+                        document.getElementById('robotX').value = targetX;
+                        document.getElementById('robotY').value = targetY;
+                        clearInterval(animationInterval);
+                        animationInterval = null;
+                        drawField();
+                        return;
+                    }
+
+                    currentX += (dx / distance) * 0.05;
+                    currentY += (dy / distance) * 0.05;
+
+                    document.getElementById('robotX').value = currentX.toFixed(1);
+                    document.getElementById('robotY').value = currentY.toFixed(1);
+                    drawField();
+                }, 25);
+
+                return;
+            }
+
+            animationInterval = setInterval(() => {
+                if (customWaypoints.length > 0) {
+                    stepNextWaypoint();
+                } else {
+                    stepNextWaypoint();
+                    clearInterval(animationInterval);
+                    animationInterval = null;
+                }
+            }, 350);
         }
 
         function drawField() {
@@ -780,7 +838,7 @@
                 ctx.beginPath(); ctx.moveTo(0, i * scale); ctx.lineTo(canvas.width, i * scale); ctx.stroke();
             }
 
-            // Draw Season Obstacles
+            // Draw Obstacles
             const activeObs = SEASON_CONFIGS[currentSeason].obstacles;
             activeObs.forEach(obs => {
                 ctx.fillStyle = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
@@ -797,10 +855,9 @@
                 ctx.fillText(obs.label, obs.x * scale, (3.6 - obs.y) * scale + 3);
             });
 
-            // Target Sequence
+            // Target Sequence & Connected Dashed Lines
             const fullPoints = [{ x: rx, y: ry }, ...customWaypoints, { x: tx, y: ty }];
 
-            // Draw Waypoint Dots
             customWaypoints.forEach((pt, index) => {
                 ctx.fillStyle = '#c87d32';
                 ctx.beginPath();
@@ -812,7 +869,6 @@
                 ctx.fillText(`P${index + 1}`, pt.x * scale, (3.6 - pt.y) * scale - 9);
             });
 
-            // Connected Line Segments
             ctx.strokeStyle = accentColor;
             ctx.lineWidth = 2.5;
             ctx.setLineDash([5, 5]);
@@ -839,9 +895,6 @@
             ctx.fillRect(rPx - 10, rPy - 10, 20, 20);
         }
 
-        /* -------------------------------------------------------------
-           CHATBOT & COMMAND PARSER ENGINE
-        ------------------------------------------------------------- */
         function sendMessage() {
             const input = document.getElementById('chatInput');
             const text = input.value.trim();
@@ -862,9 +915,8 @@
 
                 const lower = text.toLowerCase();
                 let actionsTaken = [];
-
                 const numbers = text.match(/\d+/g);
-                
+
                 if (lower.includes('artifact') || lower.includes('basket') || lower.includes('score') || lower.includes('cone')) {
                     if (numbers && numbers.length > 0) {
                         const val = parseInt(numbers[0]);
@@ -889,30 +941,26 @@
                     calculateScore();
                 }
 
-                if (lower.includes('next') || lower.includes('step') || lower.includes('pick next')) {
+                if (lower.includes('next') || lower.includes('step')) {
                     stepNextWaypoint();
                     actionsTaken.push('Stepped trajectory forward to next waypoint');
                 }
 
-                if (lower.includes('target') || lower.includes('goal')) {
-                    if (numbers && numbers.length >= 2) {
-                        document.getElementById('targetX').value = (parseInt(numbers[0]) / 10).toFixed(1);
-                        document.getElementById('targetY').value = (parseInt(numbers[1]) / 10).toFixed(1);
-                        actionsTaken.push(`Updated target coordinates to (${document.getElementById('targetX').value}, ${document.getElementById('targetY').value})`);
-                    }
-                    drawField();
+                if (lower.includes('run') || lower.includes('play') || lower.includes('optimize')) {
+                    runOptimization();
+                    actionsTaken.push('Started path optimization and trajectory animation');
                 }
 
                 if (lower.includes('clear') || lower.includes('reset')) {
                     clearWaypoints();
-                    actionsTaken.push('Cleared all custom waypoints/dots from field canvas');
+                    actionsTaken.push('Cleared custom waypoints');
                 }
 
                 let responseText = '';
                 if (actionsTaken.length > 0) {
-                    responseText = `✔️ <strong>Updated program state based on your request:</strong><br>• ` + actionsTaken.join('<br>• ');
+                    responseText = `✔️ <strong>Updated state:</strong><br>• ` + actionsTaken.join('<br>• ');
                 } else {
-                    responseText = `I received your request! Try commands like <em>"Score 3 artifacts in auto and 6 in teleop"</em>, <em>"Next set"</em>, or click directly on the canvas to add waypoint dots.`;
+                    responseText = `Try commands like <em>"Score 3 artifacts in auto"</em>, <em>"Run optimization"</em>, or click the canvas to add waypoints.`;
                 }
 
                 botMsg.innerHTML = responseText;
@@ -923,16 +971,13 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        function switchTab(tabId) {
+        function switchTab(evt, tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
-            event.currentTarget.classList.add('active');
-        }
-
-        function runOptimization() {
-            alert("Trajectory Optimized! Path generated through all current waypoints.");
-            drawField();
+            if (evt && evt.currentTarget) {
+                evt.currentTarget.classList.add('active');
+            }
         }
 
         window.onload = () => {

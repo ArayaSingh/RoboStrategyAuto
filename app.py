@@ -1,41 +1,50 @@
+import json
 import os
 import time
-import json
 import webbrowser
+
 import numpy as np
 import pandas as pd
-from dotenv import load_dotenv
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
 import uvicorn
+from dotenv import load_dotenv
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from groq import Groq
 
-# Load .env file explicitly
+# Load environment variables from a local .env file when present.
 load_dotenv(override=True)
 
 app = FastAPI(title="RoboStrategy — FTC Optimizer")
-
-# Serve files from root directory
 app.mount("/static", StaticFiles(directory="."), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)
 async def get_landing():
-    """Serves landing.html as the primary homepage."""
+    """Serves landing.html as the homepage."""
     if not os.path.exists("landing.html"):
         raise HTTPException(status_code=404, detail="landing.html not found.")
     with open("landing.html", "r", encoding="utf-8") as f:
         return f.read()
 
 
+@app.get("/index.html")
+async def serve_index():
+    return FileResponse("index.html")
+
+
 @app.get("/app", response_class=HTMLResponse)
 async def get_main_app():
-    """Serves index.html when user clicks 'Try Application'."""
+    """Serves index.html when the user opens the main app."""
     if not os.path.exists("index.html"):
         raise HTTPException(status_code=404, detail="index.html not found.")
     with open("index.html", "r", encoding="utf-8") as f:
         return f.read()
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
 
 
 @app.get("/api/randomize-obstacles")
@@ -89,10 +98,12 @@ async def chat_copilot(payload: dict):
 
 
 if __name__ == "__main__":
-    PORT = 8501
-    HOST = "127.0.0.1"
-    url = f"http://{HOST}:{PORT}"
-    
-    print(f"\n🚀 RoboStrategy Landing Page live at: {url}")
-    webbrowser.open(url)
-    uvicorn.run("app:app", host=HOST, port=PORT, reload=True)
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "8000"))
+    url = f"http://{host}:{port}"
+
+    print(f"\nRoboStrategy Landing Page live at: {url}")
+    if host == "127.0.0.1":
+        webbrowser.open(url)
+    uvicorn.run("app:app", host=host, port=port, reload=(host == "127.0.0.1"))
+
